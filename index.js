@@ -8,10 +8,16 @@ const {
     EmbedBuilder, PermissionFlagsBits, ChannelType, ActionRowBuilder,
     ButtonBuilder, ButtonStyle, StringSelectMenuBuilder
 } = require('discord.js');
+require('dotenv').config();
 
 // ══════════ CONFIG ══════════
-const TOKEN = process.env.DISCORD_TOKEN || 'MTQ3MzYwNzcwNjExNDc4OTM3Ng.GG-BcF.h1WnP72_RT8RWrXxScZ5npsQm76-U2FhwLyh78';
-const CLIENT_ID = process.env.CLIENT_ID || '1473607706114789376';
+const TOKEN = process.env.DISCORD_TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
+if (!TOKEN || !CLIENT_ID) {
+    console.error('❌ Variables manquantes ! Définis DISCORD_TOKEN et CLIENT_ID.');
+    console.error('   Exemple : DISCORD_TOKEN=ton_token CLIENT_ID=ton_id node index.js');
+    process.exit(1);
+}
 // ════════════════════════════
 
 const client = new Client({
