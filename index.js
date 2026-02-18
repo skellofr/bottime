@@ -630,13 +630,13 @@ async function buildLeaderboardEmbed() {
             .setTitle('📊  CLASSEMENT TIMECRAFT')
             .setDescription(
                 '```\n' +
-                '╔════╦══════════════════╦═══════════╦══════╗\n' +
-                '║ #  ║ Joueur           ║ Temps     ║ Kills║\n' +
-                '╠════╬══════════════════╬═══════════╬══════╣\n' +
-                '║    ║  Aucune donnée   ║           ║      ║\n' +
-                '║    ║  Serveur hors    ║           ║      ║\n' +
-                '║    ║  ligne ou vide   ║           ║      ║\n' +
-                '╚════╩══════════════════╩═══════════╩══════╝\n' +
+                '╔════╦═══════════════════╦═══════════╦═════╗\n' +
+                '║ #  ║ Joueur            ║ Temps     ║Kills║\n' +
+                '╠════╬═══════════════════╬═══════════╬═════╣\n' +
+                '║    ║  Aucune donnee    ║           ║     ║\n' +
+                '║    ║  Serveur hors     ║           ║     ║\n' +
+                '║    ║  ligne ou vide    ║           ║     ║\n' +
+                '╚════╩═══════════════════╩═══════════╩═════╝\n' +
                 '```'
             )
             .setFooter({ text: '⏰ Serveur peut-être hors ligne • TimeCraft' })
@@ -644,17 +644,15 @@ async function buildLeaderboardEmbed() {
         return { embeds: [lb] };
     }
 
-    const medals = ['🥇', '🥈', '🥉'];
     let rows = '';
     for (let i = 0; i < data.players.length && i < 15; i++) {
         const p = data.players[i];
-        const rank = medals[i] || `${i + 1} `;
-        const name = p.name.padEnd(16).slice(0, 16);
+        const rank = String(i + 1).padStart(2);
+        const online = p.online ? '+' : '-';
+        const nameCol = `${online} ${p.name}`.padEnd(17).slice(0, 17);
         const time = (p.timeFormatted || '--:--:--').padEnd(9).slice(0, 9);
-        const kills = String(p.kills).padStart(4);
-        const lvl = p.levelName || `Niv.${p.level}`;
-        const online = p.online ? '🟢' : '⚫';
-        rows += `║ ${rank} ║ ${online} ${name} ║ ${time} ║${kills} ║\n`;
+        const kills = String(p.kills).padStart(5);
+        rows += `║ ${rank} ║ ${nameCol} ║ ${time} ║${kills}║\n`;
     }
 
     const lb = new EmbedBuilder()
