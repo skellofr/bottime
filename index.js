@@ -8,7 +8,7 @@ const {
     EmbedBuilder, PermissionFlagsBits, ChannelType, ActionRowBuilder,
     ButtonBuilder, ButtonStyle, StringSelectMenuBuilder
 } = require('discord.js');
-require('dotenv').config();
+try { require('dotenv').config(); } catch (_) {}
 
 // ══════════ CONFIG ══════════
 const TOKEN = process.env.DISCORD_TOKEN;
