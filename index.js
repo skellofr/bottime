@@ -146,29 +146,39 @@ let mcDataTimestamp = 0;   // Timestamp de la dernière réception
 
 function startAPIReceiver() {
     const server = http.createServer((req, res) => {
+        // Accepter toutes les méthodes sur /api/push (Railway peut envoyer des health checks)
         if (req.method === 'POST' && req.url === '/api/push') {
             // Vérifier le token
             const auth = req.headers['authorization'];
             if (!auth || auth !== `Bearer ${MC_API_KEY}`) {
+                console.log('⚠️ Push reçu avec mauvais token:', auth);
                 res.writeHead(401, { 'Content-Type': 'application/json' });
                 res.end('{"error":"Unauthorized"}');
                 return;
             }
 
-            let body = '';
-            req.on('data', chunk => { body += chunk; });
+            const chunks = [];
+            req.on('data', chunk => chunks.push(chunk));
             req.on('end', () => {
                 try {
+                    const body = Buffer.concat(chunks).toString('utf8');
                     mcData = JSON.parse(body);
                     mcDataTimestamp = Date.now();
+                    const keys = Object.keys(mcData);
+                    console.log(`📡 Données MC reçues ! (${(body.length / 1024).toFixed(1)} KB) — Clés: ${keys.join(', ')}`);
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end('{"ok":true}');
                 } catch (e) {
+                    const raw = Buffer.concat(chunks).toString('utf8');
+                    console.error('❌ JSON invalide reçu:', e.message);
+                    console.error('   Début du body:', raw.substring(0, 200));
+                    console.error('   Fin du body:', raw.substring(Math.max(0, raw.length - 200)));
+                    console.error('   Taille:', raw.length, 'octets');
                     res.writeHead(400, { 'Content-Type': 'application/json' });
                     res.end('{"error":"Invalid JSON"}');
                 }
             });
-        } else if (req.method === 'GET' && req.url === '/health') {
+        } else if (req.method === 'GET' && (req.url === '/health' || req.url === '/')) {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 status: 'ok',
