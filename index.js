@@ -6,7 +6,8 @@
 const {
     Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder,
     EmbedBuilder, PermissionFlagsBits, ChannelType, ActionRowBuilder,
-    ButtonBuilder, ButtonStyle, StringSelectMenuBuilder
+    ButtonBuilder, ButtonStyle, StringSelectMenuBuilder,
+    ModalBuilder, TextInputBuilder, TextInputStyle
 } = require('discord.js');
 const mysql = require('mysql2/promise');
 try { require('dotenv').config(); } catch (_) {}
@@ -332,6 +333,10 @@ async function registerCommands() {
         new SlashCommandBuilder()
             .setName('autoleaderboard')
             .setDescription('📊 Active la mise à jour auto du classement dans ce salon (toutes les 2 min)')
+            .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+        new SlashCommandBuilder()
+            .setName('changelog')
+            .setDescription('📝 Publier un changelog dans le salon #changelog')
             .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
     ].map(cmd => cmd.toJSON());
 
@@ -1109,6 +1114,12 @@ async function confirmCloseTicket(interaction) {
 
 client.on('interactionCreate', async (interaction) => {
 
+    // ── Modal Submit (Changelog) ──
+    if (interaction.isModalSubmit() && interaction.customId === 'changelog_modal') {
+        await handleChangelogSubmit(interaction);
+        return;
+    }
+
     // ── Boutons de rôles & tickets ──
     if (interaction.isButton()) {
         const member = interaction.member;
@@ -1214,8 +1225,138 @@ client.on('interactionCreate', async (interaction) => {
             await updateAutoLeaderboard();
             await interaction.reply({ content: '✅ Classement auto-mis à jour toutes les 2 minutes dans ce salon !', ephemeral: true });
             break;
+
+        case 'changelog':
+            await showChangelogModal(interaction);
+            break;
     }
 });
+
+// ═══════════════════════════════════════════════════════════════
+//  CHANGELOG SYSTEM
+// ═══════════════════════════════════════════════════════════════
+
+let changelogCounter = 0;
+
+async function showChangelogModal(interaction) {
+    const modal = new ModalBuilder()
+        .setCustomId('changelog_modal')
+        .setTitle('📝 Nouveau Changelog');
+
+    const versionInput = new TextInputBuilder()
+        .setCustomId('changelog_version')
+        .setLabel('Version / Titre')
+        .setPlaceholder('Ex: v1.2.0 — Mise à jour du shop')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(100);
+
+    const addedInput = new TextInputBuilder()
+        .setCustomId('changelog_added')
+        .setLabel('✅ Ajouté (un par ligne)')
+        .setPlaceholder('Nouveau shop PNJ\nCommande /stats\nÉvénement Blood Moon')
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(false)
+        .setMaxLength(1000);
+
+    const changedInput = new TextInputBuilder()
+        .setCustomId('changelog_changed')
+        .setLabel('🔄 Modifié (un par ligne)')
+        .setPlaceholder('Rééquilibrage des bonus de temps\nAmélioration du scoreboard')
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(false)
+        .setMaxLength(1000);
+
+    const removedInput = new TextInputBuilder()
+        .setCustomId('changelog_removed')
+        .setLabel('❌ Supprimé (un par ligne)')
+        .setPlaceholder('Ancien système de points\nCommande /oldstats')
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(false)
+        .setMaxLength(1000);
+
+    const fixedInput = new TextInputBuilder()
+        .setCustomId('changelog_fixed')
+        .setLabel('🐛 Corrigé (un par ligne)')
+        .setPlaceholder('Fix crash au login\nFix doublon de kills')
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(false)
+        .setMaxLength(1000);
+
+    modal.addComponents(
+        new ActionRowBuilder().addComponents(versionInput),
+        new ActionRowBuilder().addComponents(addedInput),
+        new ActionRowBuilder().addComponents(changedInput),
+        new ActionRowBuilder().addComponents(removedInput),
+        new ActionRowBuilder().addComponents(fixedInput),
+    );
+
+    await interaction.showModal(modal);
+}
+
+async function handleChangelogSubmit(interaction) {
+    const version = interaction.fields.getTextInputValue('changelog_version');
+    const added = interaction.fields.getTextInputValue('changelog_added').trim();
+    const changed = interaction.fields.getTextInputValue('changelog_changed').trim();
+    const removed = interaction.fields.getTextInputValue('changelog_removed').trim();
+    const fixed = interaction.fields.getTextInputValue('changelog_fixed').trim();
+
+    // Vérifier qu'au moins un champ est rempli
+    if (!added && !changed && !removed && !fixed) {
+        return interaction.reply({ content: '❌ Tu dois remplir au moins une catégorie !', ephemeral: true });
+    }
+
+    // Trouver le salon changelog
+    const changelogChannel = interaction.guild.channels.cache.find(
+        c => c.name.includes('changelog') && c.isTextBased()
+    );
+
+    if (!changelogChannel) {
+        return interaction.reply({ content: '❌ Salon **#changelog** introuvable ! Utilise `/setup` pour le créer.', ephemeral: true });
+    }
+
+    changelogCounter++;
+
+    // Construire le contenu
+    const formatList = (text) => {
+        if (!text) return null;
+        return text.split('\n').filter(l => l.trim()).map(l => `> • ${l.trim()}`).join('\n');
+    };
+
+    const fields = [];
+    if (added) fields.push({ name: '✅  Ajouté', value: formatList(added), inline: false });
+    if (changed) fields.push({ name: '🔄  Modifié', value: formatList(changed), inline: false });
+    if (removed) fields.push({ name: '❌  Supprimé', value: formatList(removed), inline: false });
+    if (fixed) fields.push({ name: '🐛  Corrigé', value: formatList(fixed), inline: false });
+
+    const embed = new EmbedBuilder()
+        .setColor(COLORS.gold)
+        .setTitle(`📝  CHANGELOG — ${version}`)
+        .setDescription(
+            '```\n' +
+            '╔══════════════════════════════════════╗\n' +
+            '║        ⏰  MISE À JOUR  ⏰           ║\n' +
+            '╚══════════════════════════════════════╝\n' +
+            '```'
+        )
+        .addFields(fields)
+        .setFooter({ text: `⏰ TimeCraft — Changelog #${changelogCounter} • Par ${interaction.user.displayName}` })
+        .setTimestamp();
+
+    // Envoyer dans #changelog
+    const notifRole = interaction.guild.roles.cache.find(r => r.name === '🔔 Notifications');
+    const ping = notifRole ? `<@&${notifRole.id}>` : '';
+
+    await changelogChannel.send({
+        content: ping ? `${ping} **Nouvelle mise à jour !**` : '**Nouvelle mise à jour !**',
+        embeds: [embed]
+    });
+
+    await interaction.reply({
+        content: `✅ Changelog **${version}** publié dans ${changelogChannel} !`,
+        ephemeral: true
+    });
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  WELCOME MESSAGE ON JOIN
