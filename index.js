@@ -710,7 +710,7 @@ function buildInfoEmbed() {
 
 async function buildLeaderboardEmbed() {
     const fresh = await isDataFresh();
-    const players = fresh ? await getLeaderboard() : null;
+    const players = await getLeaderboard();
 
     if (!players || players.length === 0) {
         const lb = new EmbedBuilder()
@@ -755,7 +755,7 @@ async function buildLeaderboardEmbed() {
             '╚════╩═══════════════════╩═══════════╩═════╝\n' +
             '```'
         )
-        .setFooter({ text: `⏰ ${players.length} joueur(s) au classement • TimeCraft` })
+        .setFooter({ text: `⏰ ${players.length} joueur(s) au classement${fresh ? '' : ' • ⚠ Serveur hors ligne'} • TimeCraft` })
         .setTimestamp();
 
     return { embeds: [lb] };
